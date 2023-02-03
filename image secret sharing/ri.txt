@@ -1,0 +1,281 @@
+for TH = 48:4:60
+    
+    
+    ThresholdTest = 1;   
+    image_secret=imread('Lena.bmp');
+    image_secret=imresize(image_secret,[128,128]);
+    imshow(image_secret);
+    [rols,cols]=size(image_secret);
+    SISMethodFlag=4; 
+    Threshold = 2;
+    ShareImgNum = 3;   
+    CRTOurMethodFlag=3;
+    w =[1,1]; 
+    ScrambleFlag = 0;
+    imshowFlag=0;
+    imSaveFlag=1;  
+    EncryptMethodFlag = 1;
+    
+    if SISMethodFlag==4
+        
+        k=Threshold;
+        p=128;
+        m=[251 253 255];
+        n=length(m);% 
+        if p==256
+            CRTOurMethodFlag=2;
+            k=n;
+        end
+        r=k;
+        RecoveredNo = 1:r; 
+        M=prod(m(1:r)); 
+        Nr1 = prod(m(n-r+2:end));
+        
+        if CRTOurMethodFlag==3 
+            T = round((floor(M/p-1))/2); 
+            RanBigRange = (T+1):(floor(M/p-1));
+            RanSmallRange = 0:(T-1); 
+        end
+        InvalidValue = m;
+        P=m;
+        Tsc = round(P/2); 
+        AllRandom = 4*T;
+    end
+    
+    if  ThresholdTest == 1
+        TH1 = Tsc+TH;
+        TH0 = Tsc-TH;
+    end
+    n=ShareImgNum;
+    k=Threshold;
+    r=k;
+    SC = cell(1,n);
+    C = SC;
+    Flag = cell(n,2); 
+    C{1} =imread('C.bmp');
+    C{2} =imread('P.bmp');
+    if ShareImgNum>=3
+        C{3} =imread('M.bmp');
+    end
+    for i=1:n
+        SC{i} = ones(rols,cols);
+        Flag{i}{1} = (rand(rols,cols)<w(1));
+        Flag{i}{2} = (rand(rols,cols)<w(2)); 
+        C{i} = imresize(C{i},[rols,cols]);
+    end
+    image_secret=double(image_secret); 
+    image_secret=uint8(image_secret);
+    if imshowFlag ==1
+        figure,imshow(uint8(image_secret));
+    end
+    if imSaveFlag ==1
+        savefilepath1 = strcat('DATA:\\work\\SecretShare', '\\',num2str(k),num2str(n),num2str(TH), 'S ','.bmp');
+        fileID = fopen(savefilepath1);
+        imwrite(image_secret, fileID);
+       
+    end
+    for i=1:rols
+        for j=1:cols
+            x=image_secret(i,j);
+            iscc = [];
+            c=zeros(1,n);
+            for isc = 1:n
+                c(isc) = C{isc}(i,j);
+                if Flag{isc}{c(isc)+1}(i,j) ==1
+                    iscc = [iscc isc];
+                    print(iscc);
+                end
+            end
+            if SISMethodFlag==4
+                if x<p 
+                    Aall = RanBigRange;
+                elseif x>=p
+                    Aall = RanSmallRange;
+                end
+                
+                ind = randperm(length(Aall));   
+                for iRandom = 1:length(Aall)
+                    [a] = CRTSS(x,m,p,k,Aall(ind(iRandom)));
+                    if isempty(iscc)
+                    else
+                       if Q(a(iscc),TH1((iscc)),TH0((iscc))) == c(iscc)
+                            break;
+                       end
+                    end
+                end
+            end
+            for l =1:ShareImgNum 
+                SC{l}(i,j) = a(l);
+            end
+            
+        end
+    end
+    
+    
+    if imshowFlag ==1
+        for i = 1:n   
+            figure,imshow(uint8(SC{i}));
+        end
+    end
+    if imSaveFlag ==1
+        for i = 1:n   
+            savefilepath{i} = strcat('D:\\work\\SecretShare', '\\', num2str(k), num2str(n),num2str(TH),'SC', num2str(i), '.bmp');
+            imwrite(uint8(SC{i}), savefilepath{i});
+        end
+    end
+    
+
+
+
+
+
+
+    nmin = n;
+    nmax = n;
+    kmin = 3;
+    for n = nmin:nmax
+        for r = kmin: n
+            zh = combntns(1:n,r);
+            sizezh = size(zh);
+            sizezh = sizezh(1); 
+            secret=[rols,cols];
+            for pt = 1: sizezh 
+                Jzh = zh(pt,:); 
+                for i=1:rols
+                    for j=1:cols
+                        for l=1:n
+                            a(l)=SC{l}(i,j);
+                        end
+                        if SISMethodFlag==4
+                            
+                            secret(i,j) = CRTRecovery(a(Jzh),m(Jzh));
+                      
+                        end
+                    end
+                end
+                if imshowFlag ==1
+                     for i = 1:n     
+                        figure,imshow(uint8(secret));
+                     end
+                end
+                if imSaveFlag ==1
+                    savefilepath1 = strcat('DATA:\\work\\SecretShare', '\\',num2str(k),num2str(n),num2str(TH), 'SRec',num2str(Jzh), '.bmp');
+                    imwrite(uint8(secret), savefilepath1); 
+                end
+            end
+        end
+    end
+   
+    sum(sum(double(secret-image_secret)))
+    temp = 1;
+    for i=1:n
+        temp = temp * (TH0(i)/m(i) + (m(i)-TH1(i))/m(i))/2;
+    end
+    N_A = T*temp;
+    
+     for i=1:n
+        Im_original = C{i}*255;  
+        Im_modified = SC{i};
+        PSNR(Im_original,Im_modified);
+        getMSSIM(Im_original,Im_modified)
+       
+    end
+    
+    
+    
+    savefilepath = strcat('DATA:\\work\\SecretShare', '\\', 'RISS', num2str(k), num2str(n),num2str(TH), 'data', '.mat');
+    save(savefilepath);    
+
+end
+
+
+
+
+
+
+
+
+function x = CRTRecovery(a,m);
+     x = crt(a,m);
+end
+
+
+
+function a = CRTSS(x,m,p,k,Aall)
+for i =1:k
+	if x<p 
+		y = x + AalAall*p;
+		a = mod(y,m(i));
+	else
+		y=x-p + Aall*p;
+		a(i) = mod(y,m(i));
+	end
+end
+
+
+
+
+
+
+
+function PSNR(A,B)
+
+
+
+max2_A = max(max(A));
+max2_B = max(max(B));
+min2_A = min(min(A));
+min2_B = min(min(B));
+
+if max2_A > 1 || max2_B > 1 || min2_A < 0 || min2_B < 0
+   error('input matrices must have values in the interval [0,1]')
+end
+
+error_diff = A - B;
+decibels = 20*log10(1/(sqrt(mean(mean(error_diff.^2)))));
+fprintf('PSNR = +%5.2f dB\n',decibels)
+
+
+
+
+
+function mssim=getMSSIM(frameReference,frameUnderTest)
+
+C1 = 6.5025;
+C2 = 58.5225;
+frameReference=double(frameReference);
+frameUnderTest=double(frameUnderTest);
+frameReference_2=frameReference.^2;
+frameUnderTest_2=frameUnderTest.^2;
+frameReference_frameUnderTest=frameReference.*frameUnderTest;
+
+mu1=imgaussfilt(frameReference,1.5);
+mu2=imgaussfilt(frameUnderTest,1.5);
+mu1_2=mu1.^2;
+mu2_2=mu2.^2;
+mu1_mu2=mu1.*mu2;
+
+sigma1_2=imgaussfilt(frameReference_2,1.5);
+sigma1_2=sigma1_2-mu1_2;
+sigma2_2=imgaussfilt(frameUnderTest_2,1.5);
+sigma2_2=sigma2_2-mu2_2;
+sigma12=imgaussfilt(frameReference_frameUnderTest,1.5);
+sigma12=sigma12-mu1_mu2;
+
+
+t3 = ((2*mu1_mu2 + C1).*(2*sigma12 + C2));
+t1 =((mu1_2 + mu2_2 + C1).*(sigma1_2 + sigma2_2 + C2));
+ssim_map =  t3./t1;
+mssim = mean2(ssim_map); mssim=mean(mssim(:));
+disp(mssim);
+
+
+
+
+
+
+
+
+
+
+
